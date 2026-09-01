@@ -21,7 +21,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -42,6 +44,12 @@ class TransactionViewModel(application: Application) : AndroidViewModel(applicat
     val totalCashOut: StateFlow<Double>
     val allPaymentMethods: StateFlow<List<PaymentMethodEntity>>
     val allContacts: StateFlow<List<ContactEntity>>
+
+    private val _filters = MutableStateFlow(TransactionFilters())
+    val filters: StateFlow<TransactionFilters> = _filters.asStateFlow()
+
+    val filteredTransactions: StateFlow<List<TransactionEntity>>
+    val availableCategories: StateFlow<List<String>>
 
     init {
         val db = AppDatabase.getDatabase(application)
@@ -92,6 +100,75 @@ class TransactionViewModel(application: Application) : AndroidViewModel(applicat
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
+
+        filteredTransactions = combine(allTransactions, _filters) { transactions, filters ->
+            applyFilters(transactions, filters)
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+        availableCategories = allTransactions.map { transactions ->
+            transactions.map { it.category }.distinct().sorted()
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+    }
+
+    private fun applyFilters(
+        transactions: List<TransactionEntity>,
+        filters: TransactionFilters
+    ): List<TransactionEntity> {
+        val query = filters.searchQuery.trim()
+        val range = DateRangeCalculator.resolve(filters)
+
+        return transactions.filter { tx ->
+            val matchesType = filters.typeFilter == TransactionTypeFilter.ALL ||
+                tx.type == filters.typeFilter.name
+            val matchesCategory = filters.categoryFilter == null || tx.category == filters.categoryFilter
+            val matchesPaymentMethod = filters.paymentMethodFilter == null ||
+                tx.paymentMethod == filters.paymentMethodFilter
+            val matchesDate = range == null || tx.dateMillis in range.first..range.second
+            val matchesSearch = query.isBlank() ||
+                tx.description.contains(query, ignoreCase = true) ||
+                tx.contactName.contains(query, ignoreCase = true) ||
+                tx.category.contains(query, ignoreCase = true) ||
+                tx.amount.toString().contains(query) ||
+                "%.2f".format(tx.amount).contains(query)
+
+            matchesType && matchesCategory && matchesPaymentMethod && matchesDate && matchesSearch
+        }
+    }
+
+    fun setSearchQuery(query: String) {
+        _filters.value = _filters.value.copy(searchQuery = query)
+    }
+
+    fun setTypeFilter(type: TransactionTypeFilter) {
+        _filters.value = _filters.value.copy(typeFilter = type)
+    }
+
+    fun setCategoryFilter(category: String?) {
+        _filters.value = _filters.value.copy(categoryFilter = category)
+    }
+
+    fun setPaymentMethodFilter(paymentMethod: String?) {
+        _filters.value = _filters.value.copy(paymentMethodFilter = paymentMethod)
+    }
+
+    fun setDateFilter(option: DateFilterOption, customStart: Long? = null, customEnd: Long? = null) {
+        _filters.value = _filters.value.copy(
+            dateFilter = option,
+            customRangeStart = if (option == DateFilterOption.CUSTOM) customStart else null,
+            customRangeEnd = if (option == DateFilterOption.CUSTOM) customEnd else null
+        )
+    }
+
+    fun clearFilters() {
+        _filters.value = TransactionFilters()
     }
 
     fun selectBook(bookId: Long) {

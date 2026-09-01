@@ -18,17 +18,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.cashbooknepal.app.settings.DateSettingsRepository
+import com.cashbooknepal.app.ui.common.AdDatePickerDialog
+import com.cashbooknepal.app.ui.common.BsDatePickerDialog
 import com.cashbooknepal.app.utils.date.DateFormatter
 import com.cashbooknepal.app.viewmodel.TransactionViewModel
-import dev.shivathapaa.nepalidatepickerkmp.NepaliDatePicker
-import dev.shivathapaa.nepalidatepickerkmp.NepaliDatePickerDialog
-import dev.shivathapaa.nepalidatepickerkmp.rememberNepaliDatePickerState
-import dev.shivathapaa.nepalidatepickerkmp.calendar_model.NepaliDateConverter
-import dev.shivathapaa.nepalidatepickerkmp.calendar_model.NepaliDatePickerDefaults
-import dev.shivathapaa.nepalidatepickerkmp.data.NepaliDateLocale
-import dev.shivathapaa.nepalidatepickerkmp.data.NepaliDatePickerLang
-import dev.shivathapaa.nepalidatepickerkmp.data.SimpleDate
-import java.util.Calendar
 
 @Composable
 fun AddTransactionScreen(
@@ -469,81 +462,5 @@ fun AddTransactionScreen(
                 }
             }
         )
-    }
-}
-
-@Composable
-private fun BsDatePickerDialog(
-    initialDateMillis: Long,
-    onDateSelected: (Long) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val initialNepaliDate = remember(initialDateMillis) {
-        val calendar = Calendar.getInstance().apply { timeInMillis = initialDateMillis }
-        val nepaliDate = NepaliDateConverter.convertEnglishToNepali(
-            calendar.get(Calendar.YEAR),
-            calendar.get(Calendar.MONTH) + 1,
-            calendar.get(Calendar.DAY_OF_MONTH)
-        )
-        SimpleDate(nepaliDate.year, nepaliDate.month, nepaliDate.dayOfMonth)
-    }
-
-    val nepaliDatePickerState = rememberNepaliDatePickerState(
-        initialSelectedDate = initialNepaliDate,
-        initialDisplayedMonth = initialNepaliDate,
-        locale = NepaliDateLocale(language = NepaliDatePickerLang.ENGLISH)
-    )
-
-    NepaliDatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            NepaliDatePickerDefaults.DialogButton(
-                text = "OK",
-                onButtonClick = {
-                    val picked = nepaliDatePickerState.selectedDate
-                    if (picked != null) {
-                        val englishDate = NepaliDateConverter.convertNepaliToEnglish(
-                            picked.year, picked.month, picked.dayOfMonth
-                        )
-                        val calendar = Calendar.getInstance()
-                        calendar.set(englishDate.year, englishDate.month - 1, englishDate.dayOfMonth, 12, 0, 0)
-                        onDateSelected(calendar.timeInMillis)
-                    } else {
-                        onDismiss()
-                    }
-                }
-            )
-        },
-        dismissButton = {
-            NepaliDatePickerDefaults.DialogButton(text = "Cancel", onButtonClick = onDismiss)
-        }
-    ) {
-        NepaliDatePicker(state = nepaliDatePickerState)
-    }
-}
-
-@Composable
-private fun AdDatePickerDialog(
-    initialDateMillis: Long,
-    onDateSelected: (Long) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialDateMillis)
-
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = {
-                val picked = datePickerState.selectedDateMillis
-                if (picked != null) onDateSelected(picked) else onDismiss()
-            }) {
-                Text("OK")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
-    ) {
-        DatePicker(state = datePickerState)
     }
 }
