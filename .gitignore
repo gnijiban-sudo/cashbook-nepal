@@ -1,0 +1,35 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+# Private/local development files
+.idea/
+.claude/
+
+# Claude/project internal context
+CLAUDE.md
+CLAUDE_FULL_BACKUP.md
+PRODUCT_VISION.md
+PROJECT_STATUS.md
+
+# Signing keys and secrets
+*.jks
+*.keystore
+keystore.properties
+secrets.properties
+google-services.json
+.env
+.env.*
+*.pem
+*.p12
