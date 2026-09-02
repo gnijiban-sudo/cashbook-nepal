@@ -43,7 +43,8 @@ fun DashboardScreen(
     onAddCashIn: () -> Unit,
     onAddCashOut: () -> Unit,
     onEditTransaction: (Long, String) -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onManageBusinesses: () -> Unit
 ) {
     val context = LocalContext.current
     val dateSettingsRepository = remember { DateSettingsRepository(context) }
@@ -53,7 +54,9 @@ fun DashboardScreen(
     val totalCashIn by viewModel.totalCashIn.collectAsState()
     val totalCashOut by viewModel.totalCashOut.collectAsState()
     val balance = totalCashIn - totalCashOut
-    val allBooks by viewModel.allBooks.collectAsState()
+    val allBusinesses by viewModel.allBusinesses.collectAsState()
+    val currentBusinessId by viewModel.currentBusinessId.collectAsState()
+    val booksForCurrentBusiness by viewModel.booksForCurrentBusiness.collectAsState()
     val currentBookId by viewModel.currentBookId.collectAsState()
     val filters by viewModel.filters.collectAsState()
     val availableCategories by viewModel.availableCategories.collectAsState()
@@ -61,42 +64,98 @@ fun DashboardScreen(
 
     var transactionToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
     var showBookDropdown by remember { mutableStateOf(false) }
+    var showBusinessDropdown by remember { mutableStateOf(false) }
     var showAddBookDialog by remember { mutableStateOf(false) }
+    var showAddBusinessDialog by remember { mutableStateOf(false) }
     var newBookName by remember { mutableStateOf("") }
+    var newBusinessName by remember { mutableStateOf("") }
     var showFilterDialog by remember { mutableStateOf(false) }
 
-    val currentBookName = allBooks.find { it.id == currentBookId }?.name ?: "Main Cash Book"
+    val currentBookName = booksForCurrentBusiness.find { it.id == currentBookId }?.name ?: "Main Cash Book"
+    val currentBusinessName = allBusinesses.find { it.id == currentBusinessId }?.name ?: "My Business"
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Box {
-                        TextButton(onClick = { showBookDropdown = true }) {
-                            Text(currentBookName, fontWeight = FontWeight.Bold)
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = "Switch book")
-                        }
-                        DropdownMenu(
-                            expanded = showBookDropdown,
-                            onDismissRequest = { showBookDropdown = false }
-                        ) {
-                            allBooks.forEach { book ->
+                    Column {
+                        Box {
+                            TextButton(
+                                onClick = { showBusinessDropdown = true },
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                            ) {
+                                Text(
+                                    currentBusinessName,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Icon(
+                                    Icons.Default.ArrowDropDown,
+                                    contentDescription = "Switch business",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showBusinessDropdown,
+                                onDismissRequest = { showBusinessDropdown = false }
+                            ) {
+                                allBusinesses.forEach { business ->
+                                    DropdownMenuItem(
+                                        text = { Text(business.name) },
+                                        onClick = {
+                                            viewModel.selectBusiness(business.id)
+                                            showBusinessDropdown = false
+                                        }
+                                    )
+                                }
+                                HorizontalDivider()
                                 DropdownMenuItem(
-                                    text = { Text(book.name) },
+                                    text = { Text("+ Add New Business") },
                                     onClick = {
-                                        viewModel.selectBook(book.id)
-                                        showBookDropdown = false
+                                        showBusinessDropdown = false
+                                        showAddBusinessDialog = true
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Manage Businesses") },
+                                    onClick = {
+                                        showBusinessDropdown = false
+                                        onManageBusinesses()
                                     }
                                 )
                             }
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text("+ Add New Book") },
-                                onClick = {
-                                    showBookDropdown = false
-                                    showAddBookDialog = true
+                        }
+                        Box {
+                            TextButton(
+                                onClick = { showBookDropdown = true },
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                            ) {
+                                Text(currentBookName, fontWeight = FontWeight.Bold)
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = "Switch book")
+                            }
+                            DropdownMenu(
+                                expanded = showBookDropdown,
+                                onDismissRequest = { showBookDropdown = false }
+                            ) {
+                                booksForCurrentBusiness.forEach { book ->
+                                    DropdownMenuItem(
+                                        text = { Text(book.name) },
+                                        onClick = {
+                                            viewModel.selectBook(book.id)
+                                            showBookDropdown = false
+                                        }
+                                    )
                                 }
-                            )
+                                HorizontalDivider()
+                                DropdownMenuItem(
+                                    text = { Text("+ Add New Book") },
+                                    onClick = {
+                                        showBookDropdown = false
+                                        showAddBookDialog = true
+                                    }
+                                )
+                            }
                         }
                     }
                 },
@@ -341,13 +400,48 @@ fun DashboardScreen(
         )
     }
 
+    if (showAddBusinessDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddBusinessDialog = false; newBusinessName = "" },
+            title = { Text("Add New Business") },
+            text = {
+                OutlinedTextField(
+                    value = newBusinessName,
+                    onValueChange = { newBusinessName = it },
+                    label = { Text("Business name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (newBusinessName.isNotBlank()) {
+                        viewModel.addBusiness(newBusinessName.trim())
+                    }
+                    newBusinessName = ""
+                    showAddBusinessDialog = false
+                }) {
+                    Text("Add")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    newBusinessName = ""
+                    showAddBusinessDialog = false
+                }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     if (showFilterDialog) {
         TransactionFilterDialog(
             filters = filters,
             useBsCalendar = useBsCalendar,
             availableCategories = availableCategories,
             availablePaymentMethods = paymentMethods.map { it.name },
-            allBooks = allBooks,
+            allBooks = booksForCurrentBusiness,
             currentBookId = currentBookId,
             onSelectBook = { viewModel.selectBook(it) },
             onApply = { updated ->

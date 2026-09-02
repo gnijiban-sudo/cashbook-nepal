@@ -19,6 +19,15 @@ interface BookDao {
     @Query("SELECT * FROM books ORDER BY createdAt ASC")
     fun getAllBooks(): Flow<List<BookEntity>>
 
+    @Query("SELECT * FROM books WHERE businessId = :businessId ORDER BY createdAt ASC")
+    fun getBooksByBusiness(businessId: Long): Flow<List<BookEntity>>
+
     @Query("SELECT COUNT(*) FROM books")
     suspend fun getBookCount(): Int
+
+    @Query("SELECT COUNT(*) FROM books WHERE businessId = :businessId")
+    suspend fun getBookCountByBusiness(businessId: Long): Int
+
+    @Query("DELETE FROM books WHERE businessId = :businessId")
+    suspend fun deleteBooksByBusiness(businessId: Long)
 }

@@ -31,4 +31,7 @@ interface TransactionDao {
 
     @Query("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE type = 'CASH_OUT' AND bookId = :bookId")
     fun getTotalCashOutByBook(bookId: Long): Flow<Double>
+
+    @Query("SELECT COUNT(*) FROM transactions WHERE bookId IN (SELECT id FROM books WHERE businessId = :businessId)")
+    suspend fun getTransactionCountByBusiness(businessId: Long): Int
 }
