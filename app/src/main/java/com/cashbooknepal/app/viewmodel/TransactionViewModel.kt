@@ -7,21 +7,25 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.cashbooknepal.app.data.local.database.AppDatabase
 import com.cashbooknepal.app.data.local.entity.BookEntity
+import com.cashbooknepal.app.data.local.entity.BusinessEntity
 import com.cashbooknepal.app.data.local.entity.CategoryEntity
 import com.cashbooknepal.app.data.local.entity.ContactEntity
 import com.cashbooknepal.app.data.local.entity.PaymentMethodEntity
 import com.cashbooknepal.app.data.local.entity.TransactionEntity
 import com.cashbooknepal.app.data.repository.BookRepository
+import com.cashbooknepal.app.data.repository.BusinessRepository
 import com.cashbooknepal.app.data.repository.CategoryRepository
 import com.cashbooknepal.app.data.repository.ContactRepository
 import com.cashbooknepal.app.data.repository.PaymentMethodRepository
 import com.cashbooknepal.app.data.repository.TransactionRepository
+import com.cashbooknepal.app.settings.BusinessSettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -34,11 +38,18 @@ class TransactionViewModel(application: Application) : AndroidViewModel(applicat
     private val paymentMethodRepository: PaymentMethodRepository
     private val contactRepository: ContactRepository
     private val bookRepository: BookRepository
+    private val businessRepository: BusinessRepository
+    private val businessSettingsRepository: BusinessSettingsRepository
 
     private val _currentBookId = MutableStateFlow(1L)
     val currentBookId: StateFlow<Long> = _currentBookId.asStateFlow()
 
+    private val _currentBusinessId = MutableStateFlow(1L)
+    val currentBusinessId: StateFlow<Long> = _currentBusinessId.asStateFlow()
+
     val allBooks: StateFlow<List<BookEntity>>
+    val allBusinesses: StateFlow<List<BusinessEntity>>
+    val booksForCurrentBusiness: StateFlow<List<BookEntity>>
     val allTransactions: StateFlow<List<TransactionEntity>>
     val totalCashIn: StateFlow<Double>
     val totalCashOut: StateFlow<Double>
@@ -58,12 +69,51 @@ class TransactionViewModel(application: Application) : AndroidViewModel(applicat
         paymentMethodRepository = PaymentMethodRepository(db.paymentMethodDao())
         contactRepository = ContactRepository(db.contactDao())
         bookRepository = BookRepository(db.bookDao())
+        businessRepository = BusinessRepository(db.businessDao())
+        businessSettingsRepository = BusinessSettingsRepository(application)
 
         allBooks = bookRepository.allBooks.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
+
+        allBusinesses = businessRepository.allBusinesses.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+        booksForCurrentBusiness = combine(allBooks, _currentBusinessId) { books, businessId ->
+            books.filter { it.businessId == businessId }
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+        viewModelScope.launch {
+            val stored = businessSettingsRepository.currentBusinessId.first()
+            if (stored != null) {
+                _currentBusinessId.value = stored
+            }
+        }
+
+        viewModelScope.launch {
+            allBusinesses.collect { businesses ->
+                if (businesses.isNotEmpty() && businesses.none { it.id == _currentBusinessId.value }) {
+                    _currentBusinessId.value = businesses.first().id
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            booksForCurrentBusiness.collect { books ->
+                if (books.isNotEmpty() && books.none { it.id == _currentBookId.value }) {
+                    _currentBookId.value = books.first().id
+                }
+            }
+        }
 
         allTransactions = _currentBookId.flatMapLatest { bookId ->
             repository.getTransactionsByBook(bookId)
@@ -177,8 +227,61 @@ class TransactionViewModel(application: Application) : AndroidViewModel(applicat
 
     fun addBook(name: String) {
         viewModelScope.launch {
-            bookRepository.insertBook(BookEntity(name = name))
+            bookRepository.insertBook(BookEntity(name = name, businessId = _currentBusinessId.value))
         }
+    }
+
+    fun selectBusiness(businessId: Long) {
+        _currentBusinessId.value = businessId
+        viewModelScope.launch {
+            businessSettingsRepository.setCurrentBusinessId(businessId)
+        }
+    }
+
+    fun addBusiness(
+        name: String,
+        phone: String = "",
+        address: String = "",
+        panVat: String = "",
+        notes: String = ""
+    ) {
+        viewModelScope.launch {
+            val newId = businessRepository.insertBusiness(
+                BusinessEntity(
+                    name = name,
+                    phone = phone,
+                    address = address,
+                    panVat = panVat,
+                    notes = notes
+                )
+            )
+            bookRepository.insertBook(BookEntity(name = "Main Cash Book", businessId = newId))
+            selectBusiness(newId)
+        }
+    }
+
+    fun updateBusiness(business: BusinessEntity) {
+        viewModelScope.launch {
+            businessRepository.updateBusiness(business)
+        }
+    }
+
+    /**
+     * Returns null on success, or a user-facing reason the deletion was blocked.
+     * Refuses to delete the last remaining business or a business whose cashbooks
+     * already contain transactions, so financial data is never silently destroyed.
+     */
+    suspend fun deleteBusiness(business: BusinessEntity): String? {
+        if (allBusinesses.value.size <= 1) {
+            return "You must have at least one business."
+        }
+        val transactionCount = repository.getTransactionCountByBusiness(business.id)
+        if (transactionCount > 0) {
+            return "Cannot delete: this business has $transactionCount transaction(s). Delete or move them first."
+        }
+        bookRepository.deleteBooksByBusiness(business.id)
+        businessRepository.deleteBusiness(business)
+        return null
     }
 
     fun getCategoriesByType(type: String): Flow<List<CategoryEntity>> {

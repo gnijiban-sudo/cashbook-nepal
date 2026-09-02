@@ -8,11 +8,23 @@ class BookRepository(private val bookDao: BookDao) {
 
     val allBooks: Flow<List<BookEntity>> = bookDao.getAllBooks()
 
+    fun getBooksByBusiness(businessId: Long): Flow<List<BookEntity>> {
+        return bookDao.getBooksByBusiness(businessId)
+    }
+
     suspend fun insertBook(book: BookEntity) {
         bookDao.insertBook(book)
     }
 
     suspend fun deleteBook(book: BookEntity) {
         bookDao.deleteBook(book)
+    }
+
+    suspend fun getBookCountByBusiness(businessId: Long): Int {
+        return bookDao.getBookCountByBusiness(businessId)
+    }
+
+    suspend fun deleteBooksByBusiness(businessId: Long) {
+        bookDao.deleteBooksByBusiness(businessId)
     }
 }

@@ -6,6 +6,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.cashbooknepal.app.ui.business.BusinessManagementScreen
 import com.cashbooknepal.app.ui.dashboard.DashboardScreen
 import com.cashbooknepal.app.ui.settings.SettingsScreen
 import com.cashbooknepal.app.ui.transaction.AddTransactionScreen
@@ -15,6 +16,7 @@ object Routes {
     const val ADD_CASH_IN = "add_cash_in"
     const val ADD_CASH_OUT = "add_cash_out"
     const val SETTINGS = "settings"
+    const val MANAGE_BUSINESSES = "manage_businesses"
     const val EDIT_TRANSACTION = "edit_transaction/{transactionId}/{type}"
 
     fun editTransaction(transactionId: Long, type: String) = "edit_transaction/$transactionId/$type"
@@ -35,7 +37,13 @@ fun AppNavigation() {
                 onEditTransaction = { id, type ->
                     navController.navigate(Routes.editTransaction(id, type))
                 },
-                onOpenSettings = { navController.navigate(Routes.SETTINGS) }
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                onManageBusinesses = { navController.navigate(Routes.MANAGE_BUSINESSES) }
+            )
+        }
+        composable(Routes.MANAGE_BUSINESSES) {
+            BusinessManagementScreen(
+                onBack = { navController.popBackStack() }
             )
         }
         composable(Routes.ADD_CASH_IN) {

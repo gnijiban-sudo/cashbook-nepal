@@ -33,4 +33,8 @@ class TransactionRepository(private val transactionDao: TransactionDao) {
     suspend fun getTransactionById(id: Long): TransactionEntity? {
         return transactionDao.getTransactionById(id)
     }
+
+    suspend fun getTransactionCountByBusiness(businessId: Long): Int {
+        return transactionDao.getTransactionCountByBusiness(businessId)
+    }
 }
