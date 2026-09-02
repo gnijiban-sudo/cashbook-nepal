@@ -2,11 +2,14 @@
 
 package com.cashbooknepal.app.ui.common
 
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import dev.shivathapaa.nepalidatepickerkmp.NepaliDatePicker
@@ -93,4 +96,35 @@ fun AdDatePickerDialog(
     ) {
         DatePicker(state = datePickerState)
     }
+}
+
+@Composable
+fun AppTimePickerDialog(
+    initialHour: Int,
+    initialMinute: Int,
+    onTimeSelected: (hour: Int, minute: Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val timePickerState = rememberTimePickerState(
+        initialHour = initialHour,
+        initialMinute = initialMinute,
+        is24Hour = false
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                onTimeSelected(timePickerState.hour, timePickerState.minute)
+            }) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        text = {
+            TimePicker(state = timePickerState)
+        }
+    )
 }
