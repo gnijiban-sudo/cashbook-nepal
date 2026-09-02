@@ -41,4 +41,12 @@ object DateFormatter {
         val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.ENGLISH)
         return sdf.format(Date(dateMillis))
     }
+
+    /**
+     * Formats the time-of-day portion of a stored epoch-millis date, e.g. "05:39 PM".
+     */
+    fun formatTime(dateMillis: Long): String {
+        val sdf = SimpleDateFormat("hh:mm a", Locale.ENGLISH)
+        return sdf.format(Date(dateMillis))
+    }
 }
